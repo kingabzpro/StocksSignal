@@ -1,0 +1,30 @@
+[project]
+name = "stocksignal"
+version = "0.1.0"
+description = "A focused terminal stock dashboard powered by Olostep and TypeSafe Jev"
+readme = "README.md"
+requires-python = ">=3.11,<3.14"
+dependencies = [
+    "textual>=6.0,<9",
+    "rich>=14.0,<15",
+    "yfinance>=0.2.65,<2",
+    "typesafe-sdk>=0.7.4,<1",
+    "olostep>=1.2.2,<2",
+    "python-dotenv>=1.1,<2",
+]
+
+[project.optional-dependencies]
+notebook = [
+    "jupyterlab>=4,<5",
+]
+
+[project.scripts]
+app = "stocksignal.app:main"
+
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["stocksignal*"]
