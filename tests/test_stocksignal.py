@@ -472,6 +472,64 @@ class SimpleTests(unittest.IsolatedAsyncioTestCase):
 
 
 class UiTests(unittest.IsolatedAsyncioTestCase):
+    async def test_all_five_stocks_overlap_market_and_news_and_finish_independently(self):
+        tickers = ("NVDA", "AAPL", "MSFT", "TSLA", "AMZN")
+        gates = {ticker: asyncio.Event() for ticker in tickers}
+        started = {"market": set(), "news": set()}
+        all_started, first_decision = asyncio.Event(), asyncio.Event()
+
+        async def fetch(kind, ticker):
+            started[kind].add(ticker)
+            if all(len(items) == 5 for items in started.values()):
+                all_started.set()
+            await gates[ticker].wait()
+
+        async def prices(ticker):
+            await fetch("market", ticker)
+            data = copy.deepcopy(demo_result(ticker)["market"])
+            data["price"] += 1
+            return data
+
+        async def news(client, identity):
+            self.assertEqual(set(identity), {"ticker", "company"})
+            await fetch("news", identity["ticker"])
+            return {"status": "No news", "date_status": "Unverified", "articles": []}
+
+        async def decide(client, data, sources):
+            self.assertEqual(data["price"], demo_result(data["ticker"])["market"]["price"] + 1)
+            self.assertEqual(sources["articles"], [])
+            first_decision.set()
+            return jev.parse_decision(decision_payload())
+
+        with patch.dict(os.environ, {"JEV_API_KEY": "test", "OLOSTEP_API_KEY": "test"}), \
+             patch.object(market, "fetch_market", side_effect=prices), \
+             patch.object(olostep, "fetch_news", side_effect=news), \
+             patch.object(jev, "analyze", side_effect=decide) as analyze:
+            app = StockSignal()
+            async with app.run_test(size=(120, 40)) as pilot:
+                with patch.object(market, "fetch_market", new=AsyncMock(
+                    side_effect=lambda ticker: copy.deepcopy(demo_result(ticker)["market"]),
+                )):
+                    app.query_one(Input).value = ",".join(tickers)
+                    await pilot.press("enter")
+                    await app.workers.wait_for_complete()
+                self.assertEqual(tuple(app.results), tickers)
+                app.action_refresh()
+                try:
+                    await asyncio.wait_for(all_started.wait(), 3)
+                    analyze.assert_not_awaited()
+                    gates["NVDA"].set()
+                    await asyncio.wait_for(first_decision.wait(), 3)
+                    self.assertEqual(app.results["NVDA"]["status"], "Done")
+                    self.assertTrue(all(app.results[ticker]["decision"] is None for ticker in tickers[1:]))
+                finally:
+                    for gate in gates.values():
+                        gate.set()
+                await app.workers.wait_for_complete()
+                self.assertEqual(analyze.await_count, 5)
+                self.assertTrue(all(result["status"] == "Done" for result in app.results.values()))
+                self.assertFalse(app.busy)
+
     async def test_demo_navigation_add_delete_refresh(self):
         with patch.object(market, "fetch_market", new=AsyncMock(side_effect=AssertionError("Demo accessed Yahoo"))):
             app = StockSignal(demo=True)

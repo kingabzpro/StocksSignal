@@ -216,7 +216,6 @@ class StockSignal(App):
             result.update(decision=None, news=None, error=None, analyzed_at=None, elapsed_seconds=None, status="Loading")
         self.render_table()
         await self.render_details()
-        semaphore = asyncio.Semaphore(3)
         try:
             async with AsyncExitStack() as stack:
                 news_client = decision_client = None
@@ -230,30 +229,40 @@ class StockSignal(App):
                     ))
                 async def run_one(ticker):
                     result = self.results[ticker]
-                    async with semaphore:
-                        stock_started = perf_counter()
-                        try:
-                            if self.demo:
-                                self.results[ticker] = demo_result(ticker)
-                            else:
-                                result["market"] = await market.fetch_market(ticker)
-                                result["status"] = "News"
-                                self.render_table()
-                                result["news"] = await olostep.fetch_news(news_client, result["market"])
-                                result["status"] = "Jev"
-                                self.render_table()
-                                result["decision"] = await jev.analyze(decision_client, result["market"], result["news"])
-                                result["analyzed_at"] = datetime.now(timezone.utc).isoformat(timespec="seconds")
-                                result["status"] = "Done"
-                        except ValueError as error:
-                            result.update(status="Error", error=str(error))
-                        except Exception:
-                            result.update(status="Error", error="Unexpected analysis failure. Retry the analysis.")
-                        finally:
-                            self.results[ticker]["elapsed_seconds"] = perf_counter() - stock_started
-                        self.render_table()
-                        if self.selected == ticker:
-                            await self.render_details()
+                    stock_started = perf_counter()
+                    try:
+                        if self.demo:
+                            self.results[ticker] = demo_result(ticker)
+                        else:
+                            result["status"] = "Market + News"
+                            self.render_table()
+                            # News needs the validated identity, so it can overlap the price refresh.
+                            identity = {"ticker": ticker, "company": result["market"]["company"]}
+                            data, news = await asyncio.gather(
+                                market.fetch_market(ticker), olostep.fetch_news(news_client, identity),
+                                return_exceptions=True,
+                            )
+                            if not isinstance(data, Exception):
+                                result["market"] = data
+                            if not isinstance(news, Exception):
+                                result["news"] = news
+                            for response in (data, news):
+                                if isinstance(response, Exception):
+                                    raise response
+                            result["status"] = "Jev"
+                            self.render_table()
+                            result["decision"] = await jev.analyze(decision_client, result["market"], result["news"])
+                            result["analyzed_at"] = datetime.now(timezone.utc).isoformat(timespec="seconds")
+                            result["status"] = "Done"
+                    except ValueError as error:
+                        result.update(status="Error", error=str(error))
+                    except Exception:
+                        result.update(status="Error", error="Unexpected analysis failure. Retry the analysis.")
+                    finally:
+                        self.results[ticker]["elapsed_seconds"] = perf_counter() - stock_started
+                    self.render_table()
+                    if self.selected == ticker:
+                        await self.render_details()
                 await asyncio.gather(*(run_one(t) for t in self.results))
             self.render_run_summary(perf_counter() - started)
             failed = sum(r["status"] == "Error" for r in self.results.values())
