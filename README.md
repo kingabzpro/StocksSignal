@@ -4,7 +4,7 @@
 
 Analyze up to 5 stocks with **yfinance**, the **Olostep Python SDK** and the **TypeSafe Python SDK (Jev)**. Get color-coded BUY / HOLD / SELL decisions, probability breakdowns, market impact and news links for a **5-trading-day horizon**.
 
-![StockSignal terminal dashboard — fictional demo values](assets/stocksignal.svg)
+![StockSignal terminal dashboard — fictional demo values](assets/stocksignal.png)
 
 *Screenshot uses clearly labeled demo data.*
 
