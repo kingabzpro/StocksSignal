@@ -6,8 +6,6 @@ Analyze up to 5 stocks with **yfinance**, the **Olostep Python SDK** and the **T
 
 ![StockSignal terminal dashboard — fictional demo values](assets/stocksignal.png)
 
-*Screenshot uses clearly labeled demo data.*
-
 ## Quick start
 
 Requires [uv](https://docs.astral.sh/uv/) and Python 3.11–3.13 (Olostep SDK compatibility).
@@ -30,16 +28,6 @@ uv run app
 Enter 1–5 tickers, then press **R**. **A** add · **D** delete · **↑/↓** select · **Esc** focus stocks · **R** refresh · **Q** quit.
 
 Try the dashboard without keys: `uv run app --demo`.
-
-## Simple alternatives
-
-**Standalone script:** `uv run --no-project examples/simple.py NVDA`
-
-**Live notebook:** open [stocksignal_simple.ipynb](notebooks/stocksignal_simple.ipynb) and run its cells in order. Uses the official TypeSafe and Olostep Python SDKs.
-
-```bash
-uv run --python 3.13 --extra notebook jupyter lab notebooks/stocksignal_simple.ipynb
-```
 
 ## How it works
 
