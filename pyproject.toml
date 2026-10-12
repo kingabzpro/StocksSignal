@@ -13,11 +13,6 @@ dependencies = [
     "python-dotenv>=1.1,<2",
 ]
 
-[project.optional-dependencies]
-notebook = [
-    "jupyterlab>=4,<5",
-]
-
 [project.scripts]
 app = "stocksignal.app:main"
 

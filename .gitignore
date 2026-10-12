@@ -5,6 +5,12 @@
 venv/
 env/
 
+# Local development files
+notebooks/
+examples/
+tests/
+assets/stocksignal.svg
+
 # Generated Python and build files
 __pycache__/
 *.py[cod]
